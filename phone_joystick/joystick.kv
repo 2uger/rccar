@@ -1,0 +1,29 @@
+#:kivy 2.0.0
+
+<EnterButton>
+    text: "Connect"
+    background_color: 1,1,1,1
+    color: 1,1,1,1
+    pos: 300, 250
+
+
+<Background>:
+    connect_bttn: button
+
+    # Label:
+    #     font_size: 70
+    #     center_x: root.width / 4
+    #     top: root.top - 50
+    #     text: "0"
+
+    # Label:
+    #     font_size: 70
+    #     center_x: root.width * 3 / 4
+    #     top: root.top - 50
+    #     text: "0"
+
+
+    EnterButton:
+        id: button
+        center: self.parent.center
+
