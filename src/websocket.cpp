@@ -1,80 +1,41 @@
-#include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
-#include "HardwareSerial.h"
+#include "WebSocketsClient.h"
 
-#include "esp_websocket_client.h"
-#include "esp_event.h"
-
+#include "websocket.h"
 #include "controller.h"
-#include "gpio.h"
+#include "pwm.h"
 
-#define WEBSOCKET_RECONNECT_TIMEOUT_MS 2000
-#define WEBSOCKET_URI ""
+#define WS_SERVER_HOST "192.168.100.19"
+#define WS_SERVER_PORT 8888
+#define RECONNECT_TIMEOUT 3000
 
-static const char *TAG = "WEBSOCKET";
+WebSocketsClient ws_client;
 
-static TimerHandle_t shutdown_signal_timer;
-static SemaphoreHandle_t shutdown_sema;
-
-static void shutdown_signaler(TimerHandle_t xTimer) {
-    ESP_LOGI(TAG, "No data received for %d seconds, signaling shutdown", NO_DATA_TIMEOUT_SEC);
-    xSemaphoreGive(shutdown_sema);
-}
-
-char ws_data[16];
-
-void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
-    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
-    switch (event_id) {
-        case WEBSOCKET_EVENT_CONNECTED:
-            Serial.println("Connection success");
+void ws_event_handler(WStype_t type, uint8_t *payload, size_t length) {
+    switch(type) {
+        case WStype_DISCONNECTED:
+            Serial.println("Ws disconnect");
             break;
-        case WEBSOCKET_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "WS disconnect");
+        case WStype_CONNECTED:
+            Serial.println("Got ws connection");
             break;
-        case WEBSOCKET_EVENT_DATA:
-            ESP_LOGI(TAG, "Received opcode=%d", data->op_code);
-            if (data->op_code == 0x08 && data->data_len == 2) {
-                ESP_LOGW(TAG, "Received closed message with code=%d", 256*data->data_ptr[0] + data->data_ptr[1]);
-            } else {
-                Motion motion = parse_ws_input(data->data_ptr);
-                if (motion.velocity > 0) 
-                    move_forward();
-                else if (motion.velocity < 0) {
-                    move_backward();
-                    motion.velocity *= -1;
-                }
-                else
-                    move_stop();
-                printf("Scanning data is %d and %d\n", motion.velocity, motion.rotation);
-            }
-
-            xTimerReset(shutdown_signal_timer, portMAX_DELAY);
+        case WStype_TEXT:
+            Serial.println((char *)payload);
+            Motion m = {0, 0};
+            m = parse_ws_input((char *)payload);
+            pwm_movement_control(m.velocity);
+            pwm_rotation_control(m.rotation);
             break;
-        case WEBSOCKET_EVENT_ERROR:
-            ESP_LOGI(TAG, "Error");
+        case WStype_BIN:
+            Serial.println("Got bin");
             break;
-        }
-}
-
-void websocket_client_start(void) {
-    esp_websocket_client_config_t websocket_cfg = {};
-
-    shutdown_signal_timer = xTimerCreate("Websocket shutdown timer", 4 * 1000 / portTICK_PERIOD_MS,
-                                         pdFALSE, NULL, shutdown_signaler);
-    shutdown_sema = xSemaphoreCreateBinary();
-
-    websocket_cfg.uri = WEBSOCKET_URI;
-
-    esp_websocket_client_handle_t client;
-
-    client = esp_websocket_client_init(&websocket_cfg);
-
-    esp_websocket_register_events(client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)client);
-
-    esp_websocket_client_start(client);
-
-    while (1) {
-        vTaskDelay(10000 / portTICK_RATE_MS);
+        default:
+            break;
     }
+}
+
+void ws_setup() {
+    Serial.println("Trying connect to the server");
+    ws_client.begin(WS_SERVER_HOST, WS_SERVER_PORT);
+    ws_client.onEvent(ws_event_handler);
+    ws_client.setReconnectInterval(RECONNECT_TIMEOUT);
 }

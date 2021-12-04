@@ -9,8 +9,8 @@
 // First elem is move FORWARD(+) or BACKWARD(-)(pwm values) and second is
 // turn RIGHT(+) or LEFT(-)(pwm value)
 // Examples of input data:
-// (100;100)
-// ( 90; 87)
+// (100,100)
+// (90,87)
 // Parse string coming from websocket connection
 Motion parse_ws_input(const char * s) {
     Motion motion = {0, 0};
@@ -18,7 +18,7 @@ Motion parse_ws_input(const char * s) {
     char s_rotation [4];
     int velocity_sign = 1;
     int rotation_sign = 1;
-    while (*s != ';') {
+    while (*s != ')') {
         switch (*s) {
             case '(': {
                 s++;
@@ -28,6 +28,10 @@ Motion parse_ws_input(const char * s) {
                 }
                 int i = 0;
                 while (*s != ',') {
+                    if (*s == ' ') {
+                        s++;
+                        continue;
+                    }
                     s_velocity[i] = *s;
                     s++;
                     i++;
@@ -43,6 +47,10 @@ Motion parse_ws_input(const char * s) {
                 }
                 int i = 0;
                 while (*s != ')') {
+                    if (*s == ' ') {
+                        s++;
+                        continue;
+                    }
                     s_rotation[i] = *s;
                     s++;
                     i++;

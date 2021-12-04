@@ -7,7 +7,7 @@ import queue
 import keyboard
 
 HOST = '0.0.0.0'
-PORT = 8000
+PORT = 8888
 
 # Multiple threads better working with consume-send module
 # !!! even in such simple keyboard controller !!!
